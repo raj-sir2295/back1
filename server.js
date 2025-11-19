@@ -1,14 +1,16 @@
 import express from "express";
 import cors from "cors";
-import sql from "./db.js";   // Neon DB connected
+import sql from "./db.js";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const app = express();
+
+// CORS fix for Netlify frontend
 app.use(cors({
-  origin: "https://teal-klepon-9a05ff.netlify.app",
-  methods: ["GET", "POST"],
+  origin: "https://teal-klepon-9a05ff.netlify.app",  // <-- Netlify URL
+  methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type"]
 }));
 

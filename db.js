@@ -1,15 +1,5 @@
-const mysql = require("mysql");
+import { neon } from "@netlify/neon";
 
-const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "student_db",
-});
+const sql = neon(process.env.NETLIFY_DATABASE_URL);
 
-db.connect(err => {
-  if (err) throw err;
-  console.log("MySQL Connected");
-});
-
-module.exports = db;
+export default sql;

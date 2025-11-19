@@ -7,12 +7,14 @@ dotenv.config();
 
 const app = express();
 
-// CORS fix for Netlify frontend
+// CORS fix for Netlify + preflight
 app.use(cors({
-  origin: "https://teal-klepon-9a05ff.netlify.app",  // <-- Netlify URL
+  origin: "https://teal-klepon-9a05ff.netlify.app",
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
+app.options("*", cors()); // preflight request handle
 
 app.use(express.json());
 

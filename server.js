@@ -1,44 +1,39 @@
 import express from "express";
-import pool from "./db.js";  // Supabase PostgreSQL connection
+import cors from "cors";
 import dotenv from "dotenv";
+import pool from "./db.js";
 
 dotenv.config();
 
 const app = express();
 
-// 1️⃣ JSON parsing
+// Middleware
+app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json());
 
-// CORS headers
-const allowedOrigin = "https://teal-klepon-9a05ff.netlify.app";
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
-});
-
-// POST route to insert complaints
+// Simple insert API
 app.post("/submit", async (req, res) => {
   const { first_name, last_name, email, phone, student_id, description } = req.body;
 
   try {
-    const sql = `
-      INSERT INTO complaints (first_name, last_name, email, phone, student_id, description)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *;
+    const query = `
+      INSERT INTO feedback(first_name, last_name, email, phone, student_id, description)
+      VALUES($1, $2, $3, $4, $5, $6) RETURNING *;
     `;
+
     const values = [first_name, last_name, email, phone, student_id, description];
 
-    const result = await pool.query(sql, values);
+    const result = await pool.query(query, values);
 
-    res.send({ status: "success", message: "Complaint Submitted", data: result.rows[0] });
+    res.json({ message: "Feedback submitted successfully!", data: result.rows[0] });
   } catch (err) {
-    console.error("DB ERROR:", err);
-    res.send({ status: "error", error: err.message });
+    console.error(err);
+    res.status(500).json({ message: "Error occurred!", error: err.message });
   }
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

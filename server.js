@@ -28,6 +28,18 @@ app.post("/submit", async (req, res) => {
   } = req.body;
 
   try {
+    // Check if feedback already exists for this student
+    const checkQuery = "SELECT * FROM feedback WHERE student_name = $1";
+    const checkResult = await pool.query(checkQuery, [studentName]);
+
+    if (checkResult.rows.length > 0) {
+      // Duplicate entry message
+      return res.status(400).json({
+        message: `Duplicate entry! Feedback already submitted for "${studentName}". Please enter a new name.`
+      });
+    }
+
+    // Insert feedback if not exists
     const query = `
       INSERT INTO feedback(
         student_name,
@@ -52,8 +64,9 @@ app.post("/submit", async (req, res) => {
 
     const result = await pool.query(query, values);
 
+    // Success message
     res.json({
-      message: "Monthly Feedback saved successfully!",
+      message: `Monthly Feedback saved successfully for "${studentName}"!`,
       data: result.rows[0]
     });
 
@@ -62,6 +75,7 @@ app.post("/submit", async (req, res) => {
     res.status(500).json({ message: "Error occurred!", error: err.message });
   }
 });
+
 
 // Start server
 const PORT = process.env.PORT || 5000;

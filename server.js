@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import pool from "./db.js";
+import pool from "./db.js"; // Supabase PostgreSQL connection
 
 dotenv.config();
 
@@ -14,73 +14,78 @@ app.use(express.json());
 // Monthly feedback insert API
 app.post("/submit", async (req, res) => {
   const {
-    fullName,
-    mobileNumber,
-    branch,
+    studentName,
     joiningCourse,
     batchTime,
     teacherName,
-    q1,
-    q2,
-    q3,
-    q4,
-    q5,
-    q6,
-    suggestion
+    q1, q2, q3, q4, q5, q6,
+    suggestion,
+    fullName,
+    mobileNumber,
+    branch,
+    feedbackMonth,
+    feedbackYear
   } = req.body;
 
   try {
-    // Case-insensitive duplicate check by fullName + mobileNumber (optional for better uniqueness)
+    // Case-insensitive duplicate check
     const checkQuery = `
       SELECT * FROM feedback
-      WHERE LOWER(full_name) = LOWER($1) AND mobile_number = $2
+      WHERE LOWER(student_name) = LOWER($1)
     `;
-    const checkResult = await pool.query(checkQuery, [fullName, mobileNumber]);
+    const checkResult = await pool.query(checkQuery, [studentName]);
 
     if (checkResult.rows.length > 0) {
       return res.status(400).json({
-        message: `Duplicate entry! Feedback already submitted for "${fullName}".`
+        message: `Duplicate entry! Feedback already submitted for "${studentName}".`
       });
     }
 
-    // Insert feedback if not exists
+    // Insert feedback
     const insertQuery = `
       INSERT INTO feedback(
-        full_name,
-        mobile_number,
-        branch,
+        student_name,
         joining_course,
         batch_time,
         teacher_name,
         q1, q2, q3, q4, q5, q6,
-        suggestion
+        suggestion,
+        full_name,
+        mobile_number,
+        branch,
+        feedback_month,
+        feedback_year
       )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
       RETURNING *;
     `;
 
     const values = [
-      fullName,
-      mobileNumber,
-      branch,
+      studentName,
       joiningCourse,
       batchTime,
       teacherName,
       q1, q2, q3, q4, q5, q6,
-      suggestion
+      suggestion,
+      fullName,
+      mobileNumber,
+      branch,
+      feedbackMonth,
+      feedbackYear
     ];
 
     const result = await pool.query(insertQuery, values);
 
     res.json({
-      message: `Monthly Feedback saved successfully for "${fullName}"!`,
+      message: `Monthly Feedback saved successfully for "${studentName}"!`,
       data: result.rows[0]
     });
 
   } catch (err) {
+    // Handle duplicate key error at DB level (if UNIQUE constraint exists)
     if (err.code === "23505") {
       return res.status(400).json({
-        message: `Duplicate entry! Feedback already submitted for "${fullName}".`
+        message: `Duplicate entry! Feedback already submitted for "${studentName}".`
       });
     }
 

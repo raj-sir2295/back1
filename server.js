@@ -20,7 +20,6 @@ app.post("/submit", async (req, res) => {
     teacherName,
     q1, q2, q3, q4, q5, q6,
     suggestion,
-    fullName,
     mobileNumber,
     branch,
     feedbackMonth,
@@ -28,16 +27,23 @@ app.post("/submit", async (req, res) => {
   } = req.body;
 
   try {
-    // Case-insensitive duplicate check
+    // Case-insensitive & monthly duplicate check
     const checkQuery = `
       SELECT * FROM feedback
       WHERE LOWER(student_name) = LOWER($1)
+      AND feedback_month = $2
+      AND feedback_year = $3
     `;
-    const checkResult = await pool.query(checkQuery, [studentName]);
+
+    const checkResult = await pool.query(checkQuery, [
+      studentName,
+      feedbackMonth,
+      feedbackYear
+    ]);
 
     if (checkResult.rows.length > 0) {
       return res.status(400).json({
-        message: `Duplicate entry! Feedback already submitted for "${studentName}".`
+        message: `Duplicate entry! Feedback already submitted for "${studentName}" in ${feedbackMonth}/${feedbackYear}.`
       });
     }
 
@@ -50,13 +56,12 @@ app.post("/submit", async (req, res) => {
         teacher_name,
         q1, q2, q3, q4, q5, q6,
         suggestion,
-        full_name,
         mobile_number,
         branch,
         feedback_month,
         feedback_year
       )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       RETURNING *;
     `;
 
@@ -67,7 +72,6 @@ app.post("/submit", async (req, res) => {
       teacherName,
       q1, q2, q3, q4, q5, q6,
       suggestion,
-      fullName,
       mobileNumber,
       branch,
       feedbackMonth,
@@ -82,13 +86,6 @@ app.post("/submit", async (req, res) => {
     });
 
   } catch (err) {
-    // Handle duplicate key error at DB level (if UNIQUE constraint exists)
-    if (err.code === "23505") {
-      return res.status(400).json({
-        message: `Duplicate entry! Feedback already submitted for "${studentName}".`
-      });
-    }
-
     console.error(err);
     res.status(500).json({ message: "Error occurred!", error: err.message });
   }

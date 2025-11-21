@@ -35,7 +35,7 @@ app.post("/submit", async (req, res) => {
     if (checkResult.rows.length > 0) {
       // Duplicate entry message
       return res.status(400).json({
-        message: `Duplicate entry! Feedback already submitted for "${studentName}". Please enter a new name.`
+        message: `Duplicate entry! Feedback already submitted for "${studentName}".`
       });
     }
 

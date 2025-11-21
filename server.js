@@ -14,7 +14,9 @@ app.use(express.json());
 // Monthly feedback insert API
 app.post("/submit", async (req, res) => {
   const {
-    studentName,
+    fullName,
+    mobileNumber,
+    branch,
     joiningCourse,
     batchTime,
     teacherName,
@@ -28,36 +30,39 @@ app.post("/submit", async (req, res) => {
   } = req.body;
 
   try {
-    // Case-insensitive duplicate check
+    // Case-insensitive duplicate check by fullName + mobileNumber (optional for better uniqueness)
     const checkQuery = `
       SELECT * FROM feedback
-      WHERE LOWER(student_name) = LOWER($1)
+      WHERE LOWER(full_name) = LOWER($1) AND mobile_number = $2
     `;
-    const checkResult = await pool.query(checkQuery, [studentName]);
+    const checkResult = await pool.query(checkQuery, [fullName, mobileNumber]);
 
     if (checkResult.rows.length > 0) {
-      // Duplicate entry message
       return res.status(400).json({
-        message: `Duplicate entry! Feedback already submitted for "${studentName}".`
+        message: `Duplicate entry! Feedback already submitted for "${fullName}".`
       });
     }
 
     // Insert feedback if not exists
     const insertQuery = `
       INSERT INTO feedback(
-        student_name,
+        full_name,
+        mobile_number,
+        branch,
         joining_course,
         batch_time,
         teacher_name,
         q1, q2, q3, q4, q5, q6,
         suggestion
       )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *;
     `;
 
     const values = [
-      studentName,
+      fullName,
+      mobileNumber,
+      branch,
       joiningCourse,
       batchTime,
       teacherName,
@@ -67,17 +72,15 @@ app.post("/submit", async (req, res) => {
 
     const result = await pool.query(insertQuery, values);
 
-    // Success message
     res.json({
-      message: `Monthly Feedback saved successfully for "${studentName}"!`,
+      message: `Monthly Feedback saved successfully for "${fullName}"!`,
       data: result.rows[0]
     });
 
   } catch (err) {
-    // Handle duplicate key error at DB level (if UNIQUE constraint exists)
-    if (err.code === "23505") { // PostgreSQL duplicate key error
+    if (err.code === "23505") {
       return res.status(400).json({
-        message: `Duplicate entry! Feedback already submitted for "${studentName}".`
+        message: `Duplicate entry! Feedback already submitted for "${fullName}".`
       });
     }
 

@@ -28,8 +28,11 @@ app.post("/submit", async (req, res) => {
   } = req.body;
 
   try {
-    // Check if feedback already exists for this student
-    const checkQuery = "SELECT * FROM feedback WHERE student_name = $1";
+    // Case-insensitive duplicate check
+    const checkQuery = `
+      SELECT * FROM feedback
+      WHERE LOWER(student_name) = LOWER($1)
+    `;
     const checkResult = await pool.query(checkQuery, [studentName]);
 
     if (checkResult.rows.length > 0) {
@@ -40,7 +43,7 @@ app.post("/submit", async (req, res) => {
     }
 
     // Insert feedback if not exists
-    const query = `
+    const insertQuery = `
       INSERT INTO feedback(
         student_name,
         joining_course,
@@ -62,7 +65,7 @@ app.post("/submit", async (req, res) => {
       suggestion
     ];
 
-    const result = await pool.query(query, values);
+    const result = await pool.query(insertQuery, values);
 
     // Success message
     res.json({
@@ -71,11 +74,17 @@ app.post("/submit", async (req, res) => {
     });
 
   } catch (err) {
+    // Handle duplicate key error at DB level (if UNIQUE constraint exists)
+    if (err.code === "23505") { // PostgreSQL duplicate key error
+      return res.status(400).json({
+        message: `Duplicate entry! Feedback already submitted for "${studentName}".`
+      });
+    }
+
     console.error(err);
     res.status(500).json({ message: "Error occurred!", error: err.message });
   }
 });
-
 
 // Start server
 const PORT = process.env.PORT || 5000;

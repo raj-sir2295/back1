@@ -11,9 +11,14 @@ const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json());
 
-// Monthly feedback insert API
+// Helper function → trim + lowercase
+const clean = (value) => {
+  if (!value) return "";
+  return value.toString().trim().toLowerCase();
+};
+
 app.post("/submit", async (req, res) => {
-  const {
+  let {
     studentName,
     joiningCourse,
     batchTime,
@@ -26,11 +31,22 @@ app.post("/submit", async (req, res) => {
     feedbackYear
   } = req.body;
 
+  // Clean all inputs (trim + lowercase)
+  studentName = clean(studentName);
+  joiningCourse = clean(joiningCourse);
+  batchTime = clean(batchTime);
+  teacherName = clean(teacherName);
+  suggestion = clean(suggestion);
+  mobileNumber = clean(mobileNumber);
+  branch = clean(branch);
+  feedbackMonth = clean(feedbackMonth);
+  feedbackYear = clean(feedbackYear);
+
   try {
-    // Case-insensitive & monthly duplicate check
+    // Duplicate check
     const checkQuery = `
       SELECT * FROM feedback
-      WHERE LOWER(student_name) = LOWER($1)
+      WHERE student_name = $1
       AND feedback_month = $2
       AND feedback_year = $3
     `;

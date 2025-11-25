@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import pool from "./db.js"; // Supabase PostgreSQL connection
+import pool from "./db.js"; // Supabase/PostgreSQL connection
 
 dotenv.config();
 
@@ -11,12 +11,11 @@ const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json());
 
-// Helper function → trim + lowercase
-const clean = (value) => {
-  if (!value) return "";
-  return value.toString().trim().toLowerCase();
-};
+// Helper functions
+const cleanText = (value) => (value ? value.toString().trim() : "");
+const cleanLower = (value) => (value ? value.toString().trim().toLowerCase() : "");
 
+// POST /submit
 app.post("/submit", async (req, res) => {
   let {
     studentName,
@@ -31,19 +30,39 @@ app.post("/submit", async (req, res) => {
     feedbackYear
   } = req.body;
 
-  // Clean all inputs (trim + lowercase)
-  studentName = clean(studentName);
-  joiningCourse = clean(joiningCourse);
-  batchTime = clean(batchTime);
-  teacherName = clean(teacherName);
-  suggestion = clean(suggestion);
-  mobileNumber = clean(mobileNumber);
-  branch = clean(branch);
-  feedbackMonth = clean(feedbackMonth);
-  feedbackYear = clean(feedbackYear);
+  // Clean inputs
+  studentName = cleanLower(studentName);
+  joiningCourse = cleanLower(joiningCourse);
+  batchTime = cleanText(batchTime);
+  teacherName = cleanLower(teacherName);
+  suggestion = cleanLower(suggestion);
+  mobileNumber = cleanText(mobileNumber);
+  branch = cleanLower(branch);
+  feedbackMonth = cleanLower(feedbackMonth);
+  feedbackYear = cleanLower(feedbackYear);
+
+  // Convert Q1-Q6 to numbers
+  q1 = Number(q1) || 0;
+  q2 = Number(q2) || 0;
+  q3 = Number(q3) || 0;
+  q4 = Number(q4) || 0;
+  q5 = Number(q5) || 0;
+  q6 = Number(q6) || 0;
 
   try {
-    // Duplicate check
+    // Step 1: Check if mobile number is registered
+    const mobileCheck = await pool.query(
+      "SELECT * FROM registered_students WHERE mobile_number = $1",
+      [mobileNumber]
+    );
+
+    if (mobileCheck.rows.length === 0) {
+      return res.status(400).json({
+        message: "यह मोबाइल नंबर हमारे रिकॉर्ड में नहीं है! केवल registered mobile number से ही feedback दिया जा सकता है।"
+      });
+    }
+
+    // Step 2: Duplicate month/year check
     const checkQuery = `
       SELECT * FROM feedback
       WHERE student_name = $1
@@ -59,29 +78,22 @@ app.post("/submit", async (req, res) => {
 
     if (checkResult.rows.length > 0) {
       return res.status(400).json({
-        message: `Duplicate entry! Feedback already submitted for "${studentName}" in ${feedbackMonth}/${feedbackYear}.`
+        message: `Duplicate entry! "${studentName}" ने ${feedbackMonth}/${feedbackYear} का feedback पहले ही दिया है।`
       });
     }
 
-    // Insert feedback
+    // Step 3: Insert feedback
     const insertQuery = `
       INSERT INTO feedback(
-        student_name,
-        joining_course,
-        batch_time,
-        teacher_name,
+        student_name, joining_course, batch_time, teacher_name,
         q1, q2, q3, q4, q5, q6,
-        suggestion,
-        mobile_number,
-        branch,
-        feedback_month,
-        feedback_year
+        suggestion, mobile_number, branch, feedback_month, feedback_year
       )
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       RETURNING *;
     `;
 
-    const values = [
+    const result = await pool.query(insertQuery, [
       studentName,
       joiningCourse,
       batchTime,
@@ -92,9 +104,7 @@ app.post("/submit", async (req, res) => {
       branch,
       feedbackMonth,
       feedbackYear
-    ];
-
-    const result = await pool.query(insertQuery, values);
+    ]);
 
     res.json({
       message: `Monthly Feedback saved successfully for "${studentName}"!`,
